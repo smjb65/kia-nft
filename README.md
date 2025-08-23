@@ -1,70 +1,106 @@
-# Getting Started with Create React App
+⚡ Kia DEX
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A simple decentralized exchange (DEX) simulator where you can deploy your own ERC-20 tokens on the Sepolia Testnet, list them in a token table, and experiment with trading-like features.
 
-## Available Scripts
+✨ Features
 
-In the project directory, you can run:
+🔗 Connect with MetaMask or Trust Wallet
 
-### `npm start`
+🪙 Deploy custom ERC-20 tokens (name, symbol, supply, decimals)
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+📊 Auto-generated token list table with price, liquidity, and volume
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+🔍 Search and sort tokens by liquidity, price, volume, or creation date
 
-### `npm test`
+🛠️ Tech Stack
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+React – Frontend framework
 
-### `npm run build`
+TailwindCSS – Styling
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Ethers.js – Blockchain interaction
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+MetaMask / Trust Wallet – Wallet connection
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+📦 Blockchain / Smart Contracts
 
-### `npm run eject`
+All smart contract code and blockchain interactions are located in the hardhat-token folder. You can find:
+https://github.com/smjb65/hardhat-token.git 
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+ERC-20 token contract
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+Deployment scripts
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+Hardhat configuration for Sepolia Testnet
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+🚀 Installation & Setup
 
-## Learn More
+Clone the repository:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+git clone https://github.com/smjb65/kia-dex.git
+cd kia-dex
 
-To learn React, check out the [React documentation](https://reactjs.org/).
 
-### Code Splitting
+Install dependencies:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+npm install
 
-### Analyzing the Bundle Size
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Start development server:
 
-### Making a Progressive Web App
+npm start
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
 
-### Advanced Configuration
+The app runs at http://localhost:3000
+.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+🚦 Usage
+Connect Wallet
 
-### Deployment
+Click Connect Wallet and choose MetaMask or Trust Wallet.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+Switch to Sepolia Testnet in your wallet.
 
-### `npm run build` fails to minify
+Create a Token
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Fill out the form with token Name, Symbol, Total Supply, and Decimals.
+
+Deploy Token
+
+Click Deploy and confirm the transaction in your wallet.
+
+Wait a few seconds for confirmation.
+
+View Token in the Table
+
+Your new token will appear in the table with:
+
+Contract address
+
+Creation date
+
+Simulated price, liquidity, and volume
+
+(Optional) Import Token to Wallet
+
+Copy the token contract address from the table.
+
+In MetaMask → Import Token → Paste address.
+
+Your token will now show in your wallet.
+
+🤝 Contributing
+
+Fork the repo
+
+Create your feature branch (git checkout -b feature/new-idea)
+
+Commit changes (git commit -m "Add new idea")
+
+Push to branch (git push origin feature/new-idea)
+
+Open a Pull Request
+
+📜 License
+
+This project is for educational and testing purposes on the Sepolia Testnet. Not intended for production or real trading use.
