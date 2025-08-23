@@ -1,6 +1,6 @@
-⚡ Kia DEX
+⚡ Kia-TokenPool
 
-A simple decentralized exchange (DEX) simulator where you can deploy your own ERC-20 tokens on the Sepolia Testnet, list them in a token table, and experiment with trading-like features.
+A simple token management and liquidity pool simulator where you can deploy your own ERC-20 tokens on the Sepolia Testnet, list them in a token table, and experiment with liquidity features.
 
 ✨ Features
 
@@ -8,7 +8,7 @@ A simple decentralized exchange (DEX) simulator where you can deploy your own ER
 
 🪙 Deploy custom ERC-20 tokens (name, symbol, supply, decimals)
 
-📊 Auto-generated token list table with price, liquidity, and volume
+📊 Auto-generated token list table with simulated price, liquidity, and volume
 
 🔍 Search and sort tokens by liquidity, price, volume, or creation date
 
@@ -24,8 +24,11 @@ MetaMask / Trust Wallet – Wallet connection
 
 📦 Blockchain / Smart Contracts
 
-All smart contract code and blockchain interactions are located in the hardhat-token folder. You can find:
+All smart contract code and blockchain interactions are located in the hardhat-token folder
+. You can find:
+
 https://github.com/smjb65/hardhat-token.git 
+
 
 ERC-20 token contract
 
@@ -73,7 +76,7 @@ Wait a few seconds for confirmation.
 
 View Token in the Table
 
-Your new token will appear in the table with:
+Your new token will appear with:
 
 Contract address
 
