@@ -853,7 +853,7 @@ function App() {
             <div className="max-w-6xl mx-auto">
                 <div className="flex justify-between items-center mb-8">
                     <div>
-                        <h1 className="text-4xl font-bold text-white mb-2">Kia Dex</h1>
+                        <h1 className="text-4xl font-bold text-white mb-2">Kia TokenPool</h1>
                         <p className="text-white/80">Complete Decentralized Finance Platform</p>
                     </div>
                     <button
