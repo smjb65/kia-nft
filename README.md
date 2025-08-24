@@ -19,7 +19,9 @@ Development: Hardhat
 1. Contract Owner Exclusive Access
 Important: Only the smart contract owner address can perform NFT minting operations. This is a security feature in the contract that prevents unauthorized users from creating NFTs.
 
-2. Current Purchase System
+https://github.com/smjb65/hardhat-NFT
+
+3. Current Purchase System
 The NFT purchase functionality is not fully implemented in the current version:
 
 Only the contract owner can create NFTs
