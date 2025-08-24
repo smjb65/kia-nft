@@ -1,897 +1,779 @@
 import React, { useState, useEffect } from 'react';
 import { ethers } from "ethers";
-import MyTokenArtifact from './abi/MyToken.json';
-import PairArtifact from './abi/Pair.json';
-import axios from 'axios';
+import NFTContractABI from './abi/MyNFT.json';
 
-const initialTokens = [
-    {
-        symbol: 'ETH',
-        name: 'Sepolia Ether',
-        price: 2600.00,
-        icon: '⟠',
-        liquidity: 10000000,
-        volume24h: 2000000,
-        created: '2021-10-01',
-        contract: '0x0000000000000000000000000000000000000000',
-        decimals: 18
-    }
-];
 
-function TokenSelector({ selectedToken, onSelect, tokens, disabled = false }) {
-    const [isOpen, setIsOpen] = useState(false);
-
-    return (
-        <div className="relative">
-            <button
-                onClick={() => !disabled && setIsOpen(!isOpen)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-xl transition-colors ${disabled ? 'bg-gray-200 cursor-not-allowed' : 'bg-gray-100 hover:bg-gray-200'
-                    }`}
-            >
-                <span className="text-xl">{selectedToken?.icon || '🪙'}</span>
-                <span className="font-semibold">{selectedToken?.symbol || 'Select'}</span>
-                {!disabled && (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                )}
-            </button>
-
-            {isOpen && (
-                <div className="absolute top-full mt-2 w-64 bg-white rounded-xl shadow-lg border z-50">
-                    <div className="p-2">
-                        {tokens.map((token) => (
-                            <button
-                                key={token.contract}
-                                onClick={() => {
-                                    onSelect(token);
-                                    setIsOpen(false);
-                                }}
-                                className="w-full flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg token-hover"
-                            >
-                                <div className="flex items-center space-x-3">
-                                    <span className="text-xl">{token.icon}</span>
-                                    <div className="text-left">
-                                        <div className="font-semibold">{token.symbol}</div>
-                                        <div className="text-sm text-gray-500">{token.name}</div>
-                                    </div>
-                                </div>
-                                <div className="text-sm text-gray-600">
-                                    ${token.price.toLocaleString()}
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-function CreateTokenTab({ onTokenCreate }) {
-    const [tokenData, setTokenData] = useState({
-        name: '',
-        symbol: '',
-        totalSupply: '',
-        decimals: 18,
-        icon: null,
-        iconFile: null
-    });
-    const [isDeploying, setIsDeploying] = useState(false);
-
-    const handleImageUpload = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            if (file.size > 50000) {
-                alert('Image size should be less than 50KB');
-                return;
-            }
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                setTokenData({ ...tokenData, icon: event.target.result, iconFile: file });
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-
-        if (!window.ethereum) {
-            alert("MetaMask not found! Please install it.");
-            return;
-        }
-
-        if (!tokenData.name || !tokenData.symbol || !tokenData.totalSupply) {
-            alert('Please fill all fields');
-            return;
-        }
-
-        try {
-            setIsDeploying(true);
-
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            await provider.send("eth_requestAccounts", []);
-            const signer = await provider.getSigner();
-
-            const factory = new ethers.ContractFactory(
-                MyTokenArtifact.abi,
-                MyTokenArtifact.bytecode,
-                signer
-            );
-
-            const token = await factory.deploy(
-                tokenData.name,
-                tokenData.symbol,
-                ethers.parseUnits(tokenData.totalSupply.toString(), tokenData.decimals),
-                tokenData.decimals
-            );
-
-            await token.waitForDeployment();
-
-            // اصلاح مقدار totalSupply برای ذخیره صحیح
-            const newToken = {
-                ...tokenData,
-                totalSupply: Number(tokenData.totalSupply), // تبدیل به عدد
-                price: 0,
-                liquidity: 0,
-                volume24h: 0,
-                created: new Date().toISOString().split('T')[0],
-                contract: token.target,
-                icon: '🪙'
-            };
-
-            onTokenCreate(newToken);
-            alert(`Token ${tokenData.symbol} successfully deployed at ${token.target} on Sepolia!`);
-            setTokenData({ name: '', symbol: '', totalSupply: '', decimals: 18, icon: null, iconFile: null });
-        } catch (err) {
-            console.error("Error deploying token:", err);
-            alert("Failed to deploy token. See console for details.");
-        } finally {
-            setIsDeploying(false);
-        }
-    };
-
-    return (
-        <div className="bg-white rounded-2xl p-6 card-shadow max-w-md mx-auto">
-            <h2 className="text-xl font-semibold mb-6">Create New Token</h2>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Token Name</label>
-                    <input
-                        type="text"
-                        value={tokenData.name}
-                        onChange={(e) => setTokenData({ ...tokenData, name: e.target.value })}
-                        placeholder="Example: My Token"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                </div>
-
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Token Symbol</label>
-                    <input
-                        type="text"
-                        value={tokenData.symbol}
-                        onChange={(e) => setTokenData({ ...tokenData, symbol: e.target.value.toUpperCase() })}
-                        placeholder="Example: MTK"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                </div>
-
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Total Supply</label>
-                    <input
-                        type="number"
-                        value={tokenData.totalSupply}
-                        onChange={(e) => setTokenData({ ...tokenData, totalSupply: e.target.value })}
-                        placeholder="1000000"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                </div>
-
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Decimals</label>
-                    <select
-                        value={tokenData.decimals}
-                        onChange={(e) => setTokenData({ ...tokenData, decimals: parseInt(e.target.value) })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                        <option value={6}>6</option>
-                        <option value={8}>8</option>
-                        <option value={18}>18</option>
-                    </select>
-                </div>
-
-                <div className="bg-blue-50 p-4 rounded-xl">
-                    <h3 className="font-semibold text-blue-800 mb-2">Network Information</h3>
-                    <p className="text-sm text-blue-600">Network: Sepolia Testnet</p>
-                    <p className="text-sm text-blue-600">Transaction Fee: ~0.001 ETH</p>
-                </div>
-
-                <button
-                    type="submit"
-                    disabled={isDeploying}
-                    className={`w-full py-4 bg-gradient-to-r from-green-500 to-blue-600 text-white font-semibold rounded-xl ${isDeploying ? 'opacity-50 cursor-not-allowed' : 'hover:from-green-600 hover:to-blue-700'}`}
-                >
-                    {isDeploying ? 'Deploying...' : 'Create Token on Sepolia'}
-                </button>
-            </form>
-        </div>
-    );
-}
-
-function LiquidityTab({ tokens, updateTokenLiquidity }) {
-    const ethToken = tokens.find(t => t.contract === '0x0000000000000000000000000000000000000000') || initialTokens[0];
-    const [token1, setToken1] = useState(ethToken);
-    const [token2, setToken2] = useState(tokens[1] || tokens[0] || {});
-    const [amount1, setAmount1] = useState('');
-    const [amount2, setAmount2] = useState('');
-    const [isApproving, setIsApproving] = useState(false);
-    const [isAddingLiquidity, setIsAddingLiquidity] = useState(false);
-
-    const PAIR_CONTRACT_ADDRESS = "0xda7057C5F7bc125CBd9dC6D8fe2e9Ff4b42a6214";
-
-    // اعتبارسنجی ورودی‌ها
-    const isValidAmount = (amount) => {
-        const parsed = parseFloat(amount);
-        return amount !== '' && !isNaN(parsed) && parsed > 0;
-    };
-
-    useEffect(() => {
-        if (isValidAmount(amount1) && token1.price && token2.price && token2.price !== 0) {
-            const rate = token1.price / token2.price;
-            setAmount2((parseFloat(amount1) * rate).toFixed(6));
-        } else {
-            setAmount2('');
-        }
-    }, [amount1, token1, token2]);
-
-    const checkBalance = async () => {
-        try {
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            const signer = await provider.getSigner();
-            const userAddress = await signer.getAddress();
-            const tokenContract = new ethers.Contract(token2.contract, MyTokenArtifact.abi, provider); // استفاده از token2.contract
-            const balance = await tokenContract.balanceOf(userAddress);
-            const formattedBalance = ethers.formatUnits(balance, token2.decimals || 18);
-            console.log(`Balance of ${token2.symbol}: ${formattedBalance}`);
-            return formattedBalance;
-        } catch (err) {
-            console.error("Error checking balance:", err);
-            alert(`Failed to check balance: ${err.message}`);
-            return 0;
-        }
-    };
-
-    const approveToken = async () => {
-        if (!window.ethereum) {
-            alert("MetaMask not found! Please install it.");
-            return;
-        }
-
-        if (!isValidAmount(amount1) || !isValidAmount(amount2)) {
-            alert("Please enter valid positive amounts for both tokens.");
-            return;
-        }
-
-        try {
-            setIsApproving(true);
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            await provider.send("eth_requestAccounts", []);
-            const signer = await provider.getSigner();
-            const userAddress = await signer.getAddress();
-
-            if (token2.contract !== '0x0000000000000000000000000000000000000000') {
-                const tokenContract = new ethers.Contract(token2.contract, MyTokenArtifact.abi, signer);
-                const amount2Wei = ethers.parseUnits(amount2.toString(), token2.decimals || 18);
-                console.log(`Approving ${amount2} ${token2.symbol} (${amount2Wei.toString()} Wei) for ${PAIR_CONTRACT_ADDRESS}`);
-
-                // بررسی موجودی توکن
-                const balance = await tokenContract.balanceOf(userAddress);
-                console.log(`Your balance of ${token2.symbol}: ${ethers.formatUnits(balance, token2.decimals)}`);
-                if (balance < amount2Wei) {
-                    throw new Error(`Insufficient balance of ${token2.symbol}. You have ${ethers.formatUnits(balance, token2.decimals)} but need ${amount2}.`);
-                }
-
-                // تخمین گس با مدیریت خطا
-                let gasEstimate;
-                try {
-                    gasEstimate = await tokenContract.approve.estimateGas(PAIR_CONTRACT_ADDRESS, amount2Wei);
-                    console.log(`Estimated gas for approve: ${gasEstimate.toString()}`);
-                } catch (gasError) {
-                    console.error("Gas estimation failed:", gasError);
-                    gasEstimate = 100000; // مقدار پیش‌فرض در صورت شکست تخمین
-                }
-
-                // اجرای تراکنش با گس بالاتر و تأخیر
-                await new Promise(resolve => setTimeout(resolve, 1000)); // تأخیر 1 ثانیه
-                const tx = await tokenContract.approve(PAIR_CONTRACT_ADDRESS, amount2Wei, {
-                    gasLimit: gasEstimate * 150n / 100n // افزایش 50% برای اطمینان
-                });
-                console.log(`Transaction hash: ${tx.hash}`);
-                await tx.wait();
-                console.log(`Approved ${amount2} ${token2.symbol} for liquidity pool`);
-                alert(`Approved ${amount2} ${token2.symbol} for liquidity pool!`);
-            } else {
-                alert("ETH does not require approval.");
-            }
-        } catch (err) {
-            console.error("Error approving token:", err);
-            alert(`Failed to approve token: ${err.message || 'Check console for details. Try switching RPC provider or increasing gas.'}`);
-        } finally {
-            setIsApproving(false);
-        }
-    };
-
-    const addLiquidity = async () => {
-        if (!window.ethereum) {
-            alert("MetaMask not found! Please install it.");
-            return;
-        }
-
-        if (!isValidAmount(amount1) || !isValidAmount(amount2)) {
-            alert("Please enter valid positive amounts for both tokens.");
-            return;
-        }
-
-        try {
-            setIsAddingLiquidity(true);
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            await provider.send("eth_requestAccounts", []);
-            const signer = await provider.getSigner();
-            const userAddress = await signer.getAddress();
-
-            const parsedAmount1 = parseFloat(amount1);
-            console.log(`Input ETH amount: ${amount1}, Parsed: ${parsedAmount1}`);
-            if (parsedAmount1 <= 0 || isNaN(parsedAmount1)) {
-                throw new Error("ETH amount must be a positive number");
-            }
-
-            console.log(`Adding liquidity: ETH=${amount1}, Token=${amount2} (${token2.symbol})`);
-            const pairContract = new ethers.Contract(PAIR_CONTRACT_ADDRESS, PairArtifact.abi, signer);
-            const amount1Wei = ethers.parseEther(amount1.toString());
-            const amount2Wei = ethers.parseUnits(amount2.toString(), token2.decimals || 18);
-            console.log(`ETH (Wei): ${amount1Wei.toString()}, Token (Wei): ${amount2Wei.toString()}`);
-
-            // بررسی اجازه (Allowance) برای توکن دوم
-            if (token2.contract !== '0x0000000000000000000000000000000000000000') {
-                const tokenContract = new ethers.Contract(token2.contract, MyTokenArtifact.abi, signer);
-                const allowance = await tokenContract.allowance(userAddress, PAIR_CONTRACT_ADDRESS);
-                console.log(`Allowance for ${token2.symbol}: ${ethers.formatUnits(allowance, token2.decimals)}`);
-                if (allowance < amount2Wei) {
-                    throw new Error(`Insufficient allowance for ${token2.symbol}. Please approve more tokens.`);
-                }
-            }
-
-            // بررسی تعادل اتریوم
-            const balance = await provider.getBalance(userAddress);
-            console.log(`User ETH balance: ${ethers.formatEther(balance)}`);
-            if (balance < amount1Wei) {
-                throw new Error("Insufficient ETH balance to add liquidity.");
-            }
-
-            // تخمین گس برای دیباگ
-            try {
-                const gasEstimate = await pairContract.addLiquidity.estimateGas(amount2Wei, { value: amount1Wei });
-                console.log(`Estimated gas: ${gasEstimate.toString()}`);
-            } catch (gasError) {
-                console.error("Gas estimation failed:", gasError);
-                throw new Error(`Gas estimation failed: ${gasError.message}`);
-            }
-
-            // اجرای تراکنش
-            const tx = await pairContract.addLiquidity(amount2Wei, { value: amount1Wei });
-            console.log(`Transaction hash: ${tx.hash}`);
-            await tx.wait();
-
-            const [reserve0, reserve1] = await pairContract.getReserves();
-            const newLiquidity = Number(ethers.formatEther(reserve0)) + Number(ethers.formatUnits(reserve1, token2.decimals || 18));
-            const newPrice = reserve1.eq(0) ? 0 : (Number(ethers.formatEther(reserve0)) / Number(ethers.formatUnits(reserve1, token2.decimals || 18))) * token1.price;
-
-            updateTokenLiquidity(token2.contract, newLiquidity, newPrice);
-            alert(`Liquidity added: ${amount1} ETH + ${amount2} ${token2.symbol}!`);
-            setAmount1('');
-            setAmount2('');
-        } catch (err) {
-            console.error("Error adding liquidity:", err);
-            alert(`Failed to add liquidity: ${err.message || 'Unknown error. Check console for details.'}`);
-        } finally {
-            setIsAddingLiquidity(false);
-        }
-    };
-
-    return (
-        <div className="bg-white rounded-2xl p-6 card-shadow max-w-md mx-auto">
-            <h2 className="text-xl font-semibold mb-6">Add Liquidity</h2>
-
-            <div className="space-y-4">
-                <div className="bg-gray-50 rounded-xl p-4">
-                    <label className="block text-sm text-gray-600 mb-2">First Token (ETH)</label>
-                    <div className="flex items-center space-x-4">
-                        <input
-                            type="number"
-                            value={amount1}
-                            onChange={(e) => {
-                                const value = e.target.value;
-                                if (value === '' || parseFloat(value) >= 0) {
-                                    setAmount1(value);
-                                }
-                            }}
-                            placeholder="0.0"
-                            min="0"
-                            step="0.000000000000000001"
-                            className="flex-1 text-xl font-semibold bg-transparent outline-none text-left"
-                            style={{ width: "80%" }}
-                        />
-                        <TokenSelector
-                            selectedToken={token1}
-                            onSelect={() => { }}
-                            tokens={[token1]}
-                            disabled={true}
-                        />
-                    </div>
-                </div>
-
-                <div className="text-center">
-                    <span className="text-2xl">+</span>
-                </div>
-
-                <div className="bg-gray-50 rounded-xl p-4">
-                    <label className="block text-sm text-gray-600 mb-2">Second Token</label>
-                    <div className="flex items-center space-x-4">
-                        <input
-                            type="number"
-                            value={amount2}
-                            onChange={(e) => {
-                                const value = e.target.value;
-                                if (value === '' || parseFloat(value) >= 0) {
-                                    setAmount2(value);
-                                }
-                            }}
-                            placeholder="0.0"
-                            min="0"
-                            step="0.000000000000000001"
-                            className="flex-1 text-xl font-semibold bg-transparent outline-none text-left"
-                            style={{ width: "80%" }}
-                        />
-                        <TokenSelector
-                            selectedToken={token2}
-                            onSelect={setToken2}
-                            tokens={tokens.filter(t => t.contract !== '0x0000000000000000000000000000000000000000')}
-                        />
-                    </div>
-                </div>
-
-                {isValidAmount(amount1) && isValidAmount(amount2) && (
-                    <div className="bg-green-50 rounded-xl p-4">
-                        <h3 className="font-semibold text-green-800 mb-2">Liquidity Information</h3>
-                        <div className="text-sm text-green-600 space-y-1">
-                            <p>Rate: 1 ETH = {token2.price ? (token1.price / token2.price).toFixed(6) : 'N/A'} {token2.symbol}</p>
-                            <p>Your pool share: ~0.01%</p>
-                            <p>LP tokens received: {(Math.sqrt(parseFloat(amount1) * parseFloat(amount2))).toFixed(2)}</p>
-                        </div>
-                    </div>
-                )}
-
-                <button
-                    onClick={approveToken}
-                    disabled={!isValidAmount(amount1) || !isValidAmount(amount2) || isApproving || isAddingLiquidity}
-                    className={`w-full py-4 rounded-xl font-semibold text-lg transition-all mb-2 ${!isValidAmount(amount1) || !isValidAmount(amount2) || isApproving || isAddingLiquidity
-                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700'
-                        }`}
-                >
-                    {isApproving ? 'Approving...' : 'Approve Token'}
-                </button>
-
-                <button
-                    onClick={addLiquidity}
-                    disabled={!isValidAmount(amount1) || !isValidAmount(amount2) || isApproving || isAddingLiquidity}
-                    className={`w-full py-4 rounded-xl font-semibold text-lg transition-all ${!isValidAmount(amount1) || !isValidAmount(amount2) || isApproving || isAddingLiquidity
-                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-green-500 to-teal-600 text-white hover:from-green-600 hover:to-teal-700'
-                        }`}
-                >
-                    {isAddingLiquidity ? 'Adding Liquidity...' : 'Add Liquidity'}
-                </button>
-            </div>
-        </div>
-    );
-}
-
-function TokenListTab({ tokens, account, fetchDeployedTokens, setTokens }) {
-    const [sortBy, setSortBy] = useState('liquidity');
-    const [searchTerm, setSearchTerm] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-
-    const filteredTokens = tokens
-        .filter(token =>
-            token.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            token.symbol.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-        .sort((a, b) => {
-            switch (sortBy) {
-                case 'price': return b.price - a.price;
-                case 'liquidity': return b.liquidity - a.liquidity;
-                case 'volume': return b.volume24h - a.volume24h;
-                case 'created': return new Date(b.created) - new Date(a.created);
-                case 'totalSupply': return b.totalSupply - a.totalSupply; // اضافه کردن مرتب‌سازی برای Total Supply
-                default: return 0;
-            }
-        });
-
-    const handleReset = async () => {
-        setIsLoading(true);
-        await fetchDeployedTokens();
-        setIsLoading(false);
-    };
-    const copyToClipboard = (text) => {
-        navigator.clipboard.writeText(text).then(() => {
-            alert("Address copied to clipboard: " + text);
-        }).catch((err) => {
-            console.error("Error copying address:", err);
-            alert("Failed to copy address.");
-        });
-    };
-
-    return (
-        <div className="bg-white rounded-2xl p-6 card-shadow">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
-                <h2 className="text-xl font-semibold">Token List</h2>
-                <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
-                    <input
-                        type="text"
-                        placeholder="Search tokens..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
-                    />
-                    <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value)}
-                        className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="liquidity">Sort by Liquidity</option>
-                        <option value="price">Sort by Price</option>
-                        <option value="volume">Sort by Volume</option>
-                        <option value="created">Sort by Date</option>
-                        <option value="totalSupply">Sort by Total Supply</option>
-                    </select>
-                    <button
-                        onClick={handleReset}
-                        disabled={isLoading || !account}
-                        className={`px-4 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 ${isLoading || !account ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                        {isLoading ? 'Loading...' : 'Reset & Refresh'}
-                    </button>
-                </div>
-            </div>
-
-            {isLoading ? (
-                <div className="flex justify-center items-center h-64">
-                    <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500"></div>
-                </div>
-            ) : (
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b border-gray-200">
-                                <th className="text-left py-3 px-4 font-semibold text-gray-700">Token</th>
-                                <th className="text-left py-3 px-4 font-semibold text-gray-700">Price</th>
-                                <th className="text-left py-3 px-4 font-semibold text-gray-700">Liquidity</th>
-                                <th className="text-left py-3 px-4 font-semibold text-gray-700">24h Volume</th>
-                                <th className="text-left py-3 px-4 font-semibold text-gray-700">Total Supply</th> {/* ستون جدید */}
-                                <th className="text-left py-3 px-4 font-semibold text-gray-700">Created</th>
-                                <th className="text-left py-3 px-4 font-semibold text-gray-700">Contract</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredTokens.length === 0 ? (
-                                <tr>
-                                    <td colSpan="7" className="py-4 px-4 text-center text-gray-500">
-                                        No tokens found. Deploy a token or connect a wallet.
-                                    </td>
-                                </tr>
-                            ) : (
-                                filteredTokens.map((token) => (
-                                    <tr key={token.contract} className="border-b border-gray-100 hover:bg-gray-50">
-                                        <td className="py-4 px-4">
-                                            <div className="flex items-center space-x-3">
-                                                <span className="text-2xl">{token.icon}</span>
-                                                <div>
-                                                    <div className="font-semibold">{token.symbol}</div>
-                                                    <div className="text-sm text-gray-500">{token.name}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="py-4 px-4 font-semibold">
-                                            ${token.price.toLocaleString()}
-                                        </td>
-                                        <td className="py-4 px-4">
-                                            ${token.liquidity.toLocaleString()}
-                                        </td>
-                                        <td className="py-4 px-4">
-                                            ${token.volume24h.toLocaleString()}
-                                        </td>
-                                        <td className="py-4 px-4">
-                                            {Number(token.totalSupply).toLocaleString()} {/* نمایش Total Supply */}
-                                        </td>
-                                        <td className="py-4 px-4 text-sm text-gray-600">
-                                            {new Date(token.created).toLocaleDateString('en-US')}
-                                        </td>
-                                        <td className="py-4 px-4">
-                                            <button
-                                                onClick={() => copyToClipboard(token.contract)}
-                                                className="text-xs bg-gray-100 px-2 py-1 rounded hover:bg-gray-200 transition-colors"
-                                                title="Click to copy address"
-                                            >
-                                                {token.contract.slice(0, 10)}...
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-        </div>
-    );
-}
+import './App.css';
 
 function App() {
-    const [activeTab, setActiveTab] = useState('create');
-    const [tokens, setTokens] = useState(initialTokens);
-    const [account, setAccount] = useState(null);
-    const [balance, setBalance] = useState(null);
+  const [activePage, setActivePage] = useState('home');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [walletConnected, setWalletConnected] = useState(false);
+  const [walletAddress, setWalletAddress] = useState('');
+  const [notification, setNotification] = useState(null);
+  const [activeTab, setActiveTab] = useState('created');
+  const [fileUploaded, setFileUploaded] = useState(null);
+  const [properties, setProperties] = useState([{ name: '', value: '' }]);
+  // State جدید برای NFTهای ساخته‌شده
+  const [createdNFTs, setCreatedNFTs] = useState([]);
+  const [account, setAccount] = useState(null);
+  const [marketNFTs, setMarketNFTs] = useState([]);
+  const [balance, setBalance] = useState(null);
 
-    const ETHERSCAN_API_KEY = 'JSTHMX54VAIMNIVRAEEVX3E22E8IPIHFXI';
+  const provider = new ethers.JsonRpcProvider('https://sepolia.infura.io/v3/2f28ca878e6c4214af25e29566351459');
 
-    const provider = new ethers.JsonRpcProvider('https://sepolia.infura.io/v3/039192b77faf49418f636491ba286d96');
 
-    const getBalance = async (address) => {
-        try {
-            const balance = await provider.getBalance(address);
-            const formattedBalance = ethers.formatEther(balance);
-            return formattedBalance;
-        } catch (err) {
-            console.error("Error fetching balance:", err);
-            return "---";
+
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('fade-in');
         }
-    };
+      });
+    });
 
-    const fetchDeployedTokens = async () => {
-        if (!account) {
-            setTokens(initialTokens);
-            return;
-        }
+    document.querySelectorAll('section').forEach(section => {
+      observer.observe(section);
+    });
 
-        try {
-            const response = await axios.get('https://api-sepolia.etherscan.io/api', {
-                params: {
-                    module: 'account',
-                    action: 'txlist',
-                    address: account,
-                    startblock: 0,
-                    endblock: 99999999,
-                    page: 1,
-                    offset: 10000,
-                    sort: 'desc',
-                    apikey: ETHERSCAN_API_KEY
-                },
-                timeout: 20000 // اضافه کردن تایم‌اوت برای جلوگیری از درخواست‌های طولانی
-            });
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    if (activePage === 'marketplace') {
+      loadNFTs();
+    }
+  }, [activePage]);
 
-            const contractCreations = response.data.result.filter(tx => tx.to === '' && tx.contractAddress);
 
-            const newTokens = [];
-            const uniqueContracts = new Set();
-            const uniqueSymbols = new Set(['ETH']); // ETH رو از قبل اضافه می‌کنیم تا تکراری نشه
+  const showPage = (pageName) => {
+    setActivePage(pageName);
+    setIsMobileMenuOpen(false);
+    window.scrollTo(0, 0);
+  };
 
-            for (const tx of contractCreations) {
-                const contractAddress = tx.contractAddress.toLowerCase();
-                if (uniqueContracts.has(contractAddress)) continue;
-                uniqueContracts.add(contractAddress);
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
 
-                try {
-                    const contract = new ethers.Contract(tx.contractAddress, MyTokenArtifact.abi, provider);
-                    const [name, symbol, decimals, totalSupply] = await Promise.all([
-                        contract.name(),
-                        contract.symbol(),
-                        contract.decimals(),
-                        contract.totalSupply()
-                    ]);
+  // آدرس قرارداد NFT
+  const nftContractAddress = "0xAad52Cf0D0Dc0C8dbC65D4FD4299edCa048d0668";
 
-                    // فیلتر کردن توکن‌های LP و توکن‌های غیراستاندارد
-                    if (symbol === 'LP' || name === 'Liquidity Pool Token') continue;
+  // آپلود فایل به Pinata
+  async function uploadFileToIPFS(file) {
+    const url = `https://api.pinata.cloud/pinning/pinFileToIPFS`;
+    let formData = new FormData();
+    formData.append("file", file);
 
-                    // فقط آخرین توکن با Symbol یکسان رو نگه دار
-                    if (uniqueSymbols.has(symbol)) continue;
-                    uniqueSymbols.add(symbol);
+    try {
+      const response = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.REACT_APP_PINATA_JWT}`,
+        },
+        body: formData,
+      });
 
-                    newTokens.push({
-                        name,
-                        symbol,
-                        decimals,
-                        totalSupply: ethers.formatUnits(totalSupply, decimals),
-                        price: 0,
-                        liquidity: 0,
-                        volume24h: 0,
-                        created: new Date(parseInt(tx.timeStamp) * 1000).toISOString().split('T')[0],
-                        contract: tx.contractAddress,
-                        icon: '🪙'
-                    });
-                } catch (err) {
-                    console.error(`Skipping non-ERC20 contract ${tx.contractAddress}:`, err);
-                }
-            }
+      const result = await response.json();
+      console.log("File IPFS Hash:", result.IpfsHash);
+      return `https://gateway.pinata.cloud/ipfs/${result.IpfsHash}`;
+    } catch (error) {
+      console.error("Pinata file upload error:", error);
+      throw error;
+    }
+  }
 
-            // ترکیب توکن‌های جدید با initialTokens و حذف تکراری‌ها
-            const allTokens = [...initialTokens, ...newTokens];
-            const uniqueTokens = Array.from(new Map(allTokens.map(token => [token.contract.toLowerCase(), token])).values());
+  // آپلود JSON متادیتا به Pinata
+  async function uploadJSONToIPFS(jsonData) {
+    const url = `https://api.pinata.cloud/pinning/pinJSONToIPFS`;
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.REACT_APP_PINATA_JWT}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(jsonData),
+      });
 
-            setTokens(uniqueTokens);
-        } catch (err) {
-            console.error("Error fetching deployed tokens:", err);
-            alert("Failed to fetch deployed tokens. See console for details.");
-            setTokens(initialTokens); // در صورت خطا به initialTokens برمی‌گردیم
-        }
-    };
+      const result = await response.json();
+      console.log("Metadata IPFS Hash:", result.IpfsHash);
+      return `https://gateway.pinata.cloud/ipfs/${result.IpfsHash}`;
+    } catch (error) {
+      console.error("Pinata JSON upload error:", error);
+      throw error;
+    }
+  }
+  // انتخاب فایل و ذخیره در state
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFileUploaded(file);
+      console.log("Selected file:", file.name);
+    }
+  };
 
-    const updateTokenLiquidity = (contractAddress, newLiquidity, newPrice) => {
-        setTokens(prevTokens => {
-            const updatedTokens = prevTokens.map(token =>
-                token.contract.toLowerCase() === contractAddress.toLowerCase()
-                    ? { ...token, liquidity: newLiquidity, price: newPrice }
-                    : token
-            );
-            return Array.from(new Map(updatedTokens.map(token => [token.contract.toLowerCase(), token])).values());
+  // وقتی NFT ساخته میشه، آن را به state اضافه کنیم:
+  const handleCreateNFT = async (e) => {
+    e.preventDefault();
+    if (!fileUploaded) return alert("Please upload a file first!");
+
+    setNotification({ message: "Creating NFT...", type: "info" });
+    try {
+      const formData = new FormData(e.target);
+      const name = formData.get("name");
+      const description = formData.get("description");
+      const category = formData.get("category");
+      const royalty = formData.get("royalty") || 0;
+      const price = formData.get("price");
+
+      const fileUrl = await uploadFileToIPFS(fileUploaded);
+      const metadata = { name, description, image: fileUrl, category, royalty, price, properties };
+      const metadataUrl = await uploadJSONToIPFS(metadata);
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const contract = new ethers.Contract(nftContractAddress, NFTContractABI.abi, signer);
+
+      const tx = await contract.mintNFT(account, metadataUrl, { value: ethers.parseEther("0") });
+      await tx.wait();
+
+      // اضافه کردن NFT جدید به state
+      setCreatedNFTs(prev => [...prev, { id: Date.now(), name, image: fileUrl, owner: account, price, category }]);
+
+      setNotification({ message: `NFT created successfully! Tx: ${tx.hash}`, type: "success" });
+      setFileUploaded(null);
+      e.target.reset();
+      setProperties([{ name: "", value: "" }]);
+    } catch (err) {
+      console.error(err);
+      setNotification({ message: "Failed to create NFT", type: "error" });
+    }
+  };
+
+
+  const buyNFT = async (tokenId, price) => {
+    try {
+      if (!window.ethereum) return alert("Please connect your wallet first");
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const contract = new ethers.Contract(nftContractAddress, NFTContractABI.abi, signer);
+
+      const tx = await contract.safeTransferFrom(
+        await signer.getAddress(),  // از کی خریده میشه
+        await contract.ownerOf(tokenId),  // به مالک فعلی
+        tokenId,
+        { value: ethers.parseEther(price.toString()) }
+      );
+      await tx.wait();
+
+      alert(`NFT purchased! Tx: ${tx.hash}`);
+      loadNFTs(); // رفرش لیست NFT ها بعد از خرید
+    } catch (err) {
+      console.error("Purchase failed:", err);
+      alert("Purchase failed, see console");
+    }
+  };
+
+
+
+  // بارگذاری NFT ها از قرارداد
+  const loadNFTs = async () => {
+    try {
+      if (!window.ethereum) return console.error("Wallet not connected");
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const contract = new ethers.Contract(nftContractAddress, NFTContractABI.abi, provider);
+
+      const total = await contract.tokenCount(); // تعداد NFT ها
+      const nfts = [];
+
+      for (let id = 1; id <= total; id++) {
+        const owner = await contract.ownerOf(id);
+        const tokenURI = await contract.tokenURI(id);
+
+        // گرفتن متادیتا از IPFS
+        const res = await fetch(tokenURI);
+        const metadata = await res.json();
+
+        nfts.push({
+          tokenId: id,
+          owner,
+          ...metadata
         });
+      }
+
+      setMarketNFTs(nfts);
+      console.log("Loaded NFTs:", nfts);
+    } catch (err) {
+      console.error("Failed to load NFTs:", err);
+    }
+  };
+
+  // فراخوانی هنگام mount کامپوننت
+  useEffect(() => {
+    loadNFTs();
+  }, []);
+
+
+
+  const addProperty = () => {
+    setProperties([...properties, { name: '', value: '' }]);
+  };
+
+  const removeProperty = (index) => {
+    setProperties(properties.filter((_, i) => i !== index));
+  };
+
+  const switchTab = (tabName) => {
+    setActiveTab(tabName);
+  };
+
+  const showNFTDetails = (nftId) => {
+    const nft = createdNFTs.find(n => n.id === nftId);
+    showNotification(`Viewing details for ${nft.name}`, 'info');
+  };
+
+  const showNotification = (message, type) => {
+    setNotification({ message, type });
+    setTimeout(() => {
+      setNotification(null);
+    }, 5300);
+  };
+  const getBalance = async (address) => {
+    try {
+      const balance = await provider.getBalance(address);
+      const formattedBalance = ethers.formatEther(balance);
+
+      const formattedBalanceWithDecimals = parseFloat(formattedBalance).toFixed(5);
+
+      return formattedBalanceWithDecimals;
+    } catch (err) {
+      console.error("Error fetching balance:", err);
+      return "---";
+    }
+  };
+
+  const connectWallet = async () => {
+    if (window.ethereum) {
+      try {
+        const accounts = await window.ethereum.request({
+          method: "eth_requestAccounts",
+        });
+
+        if (accounts.length > 0) {
+          const walletAddress = accounts[0];
+          setAccount(walletAddress);
+          const balance = await getBalance(walletAddress);
+          setBalance(balance);
+        }
+      } catch (err) {
+        console.error("Error connecting to wallet:", err);
+        alert("Failed to connect wallet. Please try again.");
+      }
+    } else {
+      alert("MetaMask or Trust Wallet not found. Please install it.");
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      alert("Address copied to clipboard: " + text);
+    }).catch((err) => {
+      console.error("Error copying address:", err);
+      alert("Failed to copy address.");
+    });
+  };
+
+  useEffect(() => {
+    const checkConnection = async () => {
+      if (window.ethereum) {
+        try {
+          const accounts = await window.ethereum.request({
+            method: "eth_accounts",
+          });
+          if (accounts.length > 0) {
+            const walletAddress = accounts[0];
+            setAccount(walletAddress);
+            const balance = await getBalance(walletAddress);
+            setBalance(balance);
+          }
+        } catch (err) {
+          console.error("Error checking wallet connection:", err);
+        }
+      }
     };
+    checkConnection();
+  }, []);
 
-    const connectWallet = async () => {
-        if (window.ethereum) {
-            try {
-                const accounts = await window.ethereum.request({
-                    method: "eth_requestAccounts",
-                });
-
-                if (accounts.length > 0) {
-                    const walletAddress = accounts[0];
-                    setAccount(walletAddress);
-                    const balance = await getBalance(walletAddress);
-                    setBalance(balance);
-                    fetchDeployedTokens();
-                }
-            } catch (err) {
-                console.error("Error connecting to wallet:", err);
-                alert("Failed to connect wallet. Please try again.");
-            }
+  useEffect(() => {
+    if (window.ethereum) {
+      const handleAccountsChanged = async (accounts) => {
+        if (accounts.length > 0) {
+          const walletAddress = accounts[0];
+          setAccount(walletAddress);
+          const balance = await getBalance(walletAddress);
+          setBalance(balance);
         } else {
-            alert("MetaMask or Trust Wallet not found. Please install it.");
+          setAccount(null);
+          setBalance(null);
         }
-    };
+      };
 
-    const copyToClipboard = (text) => {
-        navigator.clipboard.writeText(text).then(() => {
-            alert("Address copied to clipboard: " + text);
-        }).catch((err) => {
-            console.error("Error copying address:", err);
-            alert("Failed to copy address.");
-        });
-    };
+      window.ethereum.on("accountsChanged", handleAccountsChanged);
+      return () => {
+        window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
+      };
+    }
+  }, []);
 
-    useEffect(() => {
-        const checkConnection = async () => {
-            if (window.ethereum) {
-                try {
-                    const accounts = await window.ethereum.request({
-                        method: "eth_accounts",
-                    });
-                    if (accounts.length > 0) {
-                        const walletAddress = accounts[0];
-                        setAccount(walletAddress);
-                        const balance = await getBalance(walletAddress);
-                        setBalance(balance);
-                        fetchDeployedTokens();
-                    }
-                } catch (err) {
-                    console.error("Error checking wallet connection:", err);
-                }
-            }
-        };
-        checkConnection();
-    }, []);
-
-    useEffect(() => {
-        if (window.ethereum) {
-            const handleAccountsChanged = async (accounts) => {
-                if (accounts.length > 0) {
-                    const walletAddress = accounts[0];
-                    setAccount(walletAddress);
-                    const balance = await getBalance(walletAddress);
-                    setBalance(balance);
-                    fetchDeployedTokens();
-                } else {
-                    setAccount(null);
-                    setBalance(null);
-                    setTokens(initialTokens);
-                }
-            };
-
-            window.ethereum.on("accountsChanged", handleAccountsChanged);
-            return () => {
-                window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
-            };
-        }
-    }, []);
-
-    const handleTokenCreate = (newToken) => {
-        const updatedTokens = [...tokens, newToken];
-        const uniqueTokens = Array.from(new Map(updatedTokens.map(token => [token.contract.toLowerCase(), token])).values());
-        setTokens(uniqueTokens);
-        fetchDeployedTokens();
-    };
-
-    const tabs = [
-        { id: 'create', name: 'Create Token', icon: '🪙' },
-        { id: 'liquidity', name: 'Liquidity', icon: '💧' },
-        { id: 'tokens', name: 'Token List', icon: '📊' },
-    ];
-
-    return (
-        <div className="min-h-screen gradient-bg p-4">
-            <style>{`
-                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-                body { font-family: 'Inter', sans-serif; }
-                .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-                .card-shadow { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
-                .token-hover:hover { transform: translateY(-2px); transition: all 0.2s ease; }
-                .tab-active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-            `}</style>
-            <div className="max-w-6xl mx-auto">
-                <div className="flex justify-between items-center mb-8">
-                    <div>
-                        <h1 className="text-4xl font-bold text-white mb-2">Kia TokenPool</h1>
-                        <p className="text-white/80">Complete Decentralized Finance Platform</p>
-                    </div>
-                    <button
-                        id="connectButton"
-                        onClick={account ? () => copyToClipboard(account) : connectWallet}
-                        className="px-4 py-2 bg-white/20 text-white rounded-xl hover:bg-white/30"
-                    >
-                        {account ? `${account.slice(0, 6)}...${account.slice(-4)} - ${balance ? balance.slice(0, 6) : '0.0'} ETH` : 'Connect Wallet'}
-                    </button>
-                </div>
-
-                <div className="flex flex-wrap justify-center mb-8 bg-white/10 backdrop-blur-sm rounded-2xl p-2">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold transition-all m-1 ${activeTab === tab.id
-                                ? 'tab-active text-white shadow-lg'
-                                : 'text-white/70 hover:text-white hover:bg-white/10'
-                                }`}
-                        >
-                            <span className="text-xl">{tab.icon}</span>
-                            <span>{tab.name}</span>
-                        </button>
-                    ))}
-                </div>
-
-                <div className="mb-8">
-                    {activeTab === 'create' && <CreateTokenTab onTokenCreate={handleTokenCreate} />}
-                    {activeTab === 'liquidity' && <LiquidityTab tokens={tokens} updateTokenLiquidity={updateTokenLiquidity} />}
-                    {activeTab === 'tokens' && <TokenListTab tokens={tokens} account={account} fetchDeployedTokens={fetchDeployedTokens} setTokens={setTokens} />}
-                </div>
-                <div className="text-center mt-8 text-white/60 text-sm">
-                    <p>Built with ❤️ for the DeFi Community</p>
-                </div>
+  return (
+    <div className="bg-dark text-white">
+      {/* Navigation */}
+      <nav className="bg-dark-light border-b border-dark-lighter sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-4">
+              <div className="text-2xl font-bold text-primary">KIA NFT</div>
+              <span className="text-sm text-gray-400 hidden lg:block">Powered by Ethereum</span>
             </div>
+            <div className="hidden md:flex items-center space-x-8">
+              <button onClick={() => showPage('home')} className="nav-link text-white hover:text-primary transition-colors">Home</button>
+              <button onClick={() => showPage('marketplace')} className="nav-link text-white hover:text-primary transition-colors">Marketplace</button>
+              <button onClick={() => showPage('create')} className="nav-link text-white hover:text-primary transition-colors">Create NFT</button>
+              <button onClick={() => showPage('about')} className="nav-link text-white hover:text-primary transition-colors">About</button>
+            </div>
+            <div className="md:hidden flex items-center space-x-4">
+              <button
+                id="connectButton"
+                onClick={account ? () => copyToClipboard(account) : connectWallet}
+                className="px-4 py-2 bg-yellow-500 text-black font-semibold rounded-xl hover:bg-yellow-400 transition-colors"
+              >
+                {account
+                  ? `${account.slice(0, 6)}...${account.slice(-4)} - ${balance ? balance : '0.0'} ETH`
+                  : 'Connect Wallet'}
+              </button>
+
+              <button onClick={toggleMobileMenu} className="text-white hover:text-primary">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+              </button>
+            </div>
+            <button
+              id="connectButton"
+              onClick={account ? () => copyToClipboard(account) : connectWallet}
+              className="px-4 py-2 bg-yellow-500 text-black font-semibold rounded-xl hover:bg-yellow-400 transition-colors"
+            >
+              {account
+                ? `${account.slice(0, 6)}...${account.slice(-4)} - ${balance ? balance : '0.0'} ETH`
+                : 'Connect Wallet'}
+            </button>
+
+          </div>
+          <div className={`md:hidden ${isMobileMenuOpen ? 'block' : 'hidden'} bg-dark-light border-t border-dark-lighter`}>
+            <div className="px-2 pt-2 pb-3 space-y-1">
+              <button onClick={() => showPage('home')} className="block px-3 py-2 text-white hover:text-primary transition-colors">Home</button>
+              <button onClick={() => showPage('marketplace')} className="block px-3 py-2 text-white hover:text-primary transition-colors">Marketplace</button>
+              <button onClick={() => showPage('create')} className="block px-3 py-2 text-white hover:text-primary transition-colors">Create NFT</button>
+              <button onClick={() => showPage('about')} className="block px-3 py-2 text-white hover:text-primary transition-colors">About</button>
+            </div>
+          </div>
         </div>
-    );
+      </nav>
+
+      {/* Main Content */}
+      <div id="mainContent">
+        {/* Home Page */}
+        <div className={`page ${activePage === 'home' ? 'active' : ''}`}>
+          <section className="gradient-bg min-h-screen flex items-center">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+              <div className="fade-in">
+                <h1 className="text-5xl md:text-7xl font-bold mb-6">
+                  KIA <span className="text-primary">NFT</span> Marketplace
+                </h1>
+                <p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto">
+                  The premier NFT marketplace on Ethereum Sepolia testnet - Create, buy and sell unique digital assets
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <button onClick={() => showPage('marketplace')} className="bg-primary text-dark px-8 py-4 rounded-lg font-semibold text-lg hover:bg-secondary transition-all transform hover:scale-105">
+                    Explore Marketplace
+                  </button>
+                  <button onClick={() => showPage('create')} className="border-2 border-primary text-primary px-8 py-4 rounded-lg font-semibold text-lg hover:bg-primary hover:text-dark transition-all">
+                    Create NFT
+                  </button>
+                </div>
+                <div className="mt-12 flex justify-center items-center space-x-8 text-gray-400">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-primary">1,234</div>
+                    <div className="text-sm">NFTs Created</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-primary">567</div>
+                    <div className="text-sm">Active Users</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-primary">89.5 ETH</div>
+                    <div className="text-sm">Total Volume</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* Marketplace Page */}
+        <div className={`page ${activePage === 'marketplace' ? 'active' : ''}`}>
+          <section className="py-20 bg-dark min-h-screen">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-12">
+                <h2 className="text-4xl font-bold mb-4">NFT Marketplace</h2>
+                <p className="text-gray-400 text-lg">Discover NFTs created on this platform</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {marketNFTs.map(nft => (
+                  <div key={nft.id} className="bg-dark-light rounded-xl overflow-hidden card-hover cursor-pointer">
+                    <div className="aspect-square bg-dark-lighter relative overflow-hidden">
+                      <img src={nft.image} alt={nft.name} className="w-full h-full object-cover" />
+                      <div className="absolute top-3 right-3 bg-dark/80 rounded-full px-2 py-1 text-xs flex items-center space-x-1">
+                        <span>❤️</span>
+                        <span>{nft.likes || 0}</span>
+                      </div>
+                    </div>
+                    <div className="p-6">
+                      <h3 className="font-bold text-lg mb-2">{nft.name}</h3>
+                      <p className="text-gray-400 text-sm mb-3">Owner: {nft.owner}</p>
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <span className="text-primary font-bold text-lg">{nft.price} ETH</span>
+                          <span className="text-gray-400 text-sm block">{nft.category}</span>
+                        </div>
+                        <button
+                          className="bg-primary text-dark px-4 py-2 rounded-lg text-sm font-semibold hover:bg-secondary transition-colors"
+                          onClick={() => buyNFT(nft.id, nft.price)}
+                        >
+                          Buy Now
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+            </div>
+          </section>
+        </div>
+
+
+        {/* Create NFT Page */}
+        <div className={`page ${activePage === 'create' ? 'active' : ''}`}>
+          <section className="py-20 bg-dark-light min-h-screen">
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-12">
+                <h2 className="text-4xl font-bold mb-4">Create Your NFT</h2>
+                <p className="text-gray-400 text-lg">Turn your digital art into an NFT on Ethereum Sepolia</p>
+              </div>
+              <div className="bg-dark rounded-2xl p-8 shadow-2xl kia-glow">
+                <form onSubmit={(e) => handleCreateNFT(e, fileUploaded, properties, setNotification, setFileUploaded, setProperties, account)} className="space-y-6">
+
+                  {/* آپلود فایل */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Upload File</label>
+                    <div
+                      className="border-2 border-dashed border-dark-lighter rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer"
+                      onClick={() => document.getElementById('fileInput').click()}
+                    >
+                      {fileUploaded ? (
+                        <>
+                          <div className="text-4xl mb-4 text-primary">✅</div>
+                          <p className="text-primary font-semibold">{fileUploaded.name}</p>
+                          <p className="text-gray-400 text-sm mt-2">File uploaded ({(fileUploaded.size / (1024 * 1024)).toFixed(2)} MB)</p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-4xl mb-4">📁</div>
+                          <p className="text-gray-400">Drag and drop your file here or click to browse</p>
+                          <p className="text-xs text-gray-500 mt-2">Supports: JPG, PNG, GIF, MP4, MP3 (Max 100MB)</p>
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        id="fileInput"
+                        name="file"
+                        className="hidden"
+                        accept="image/*,video/*,audio/*"
+                        onChange={handleFileSelect}
+                      />
+                    </div>
+                  </div>
+
+                  {/* نام و قیمت */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">NFT Name *</label>
+                      <input
+                        type="text"
+                        name="name"
+                        required
+                        className="w-full bg-dark-light border border-dark-lighter rounded-lg px-4 py-3 text-white focus:border-primary focus:outline-none"
+                        placeholder="Enter your NFT name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Price (ETH) *</label>
+                      <input
+                        type="number"
+                        name="price"
+                        step="0.001"
+                        required
+                        className="w-full bg-dark-light border border-dark-lighter rounded-lg px-4 py-3 text-white focus:border-primary focus:outline-none"
+                        placeholder="0.1"
+                      />
+                    </div>
+                  </div>
+
+                  {/* توضیحات */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Description</label>
+                    <textarea
+                      name="description"
+                      rows="4"
+                      className="w-full bg-dark-light border border-dark-lighter rounded-lg px-4 py-3 text-white focus:border-primary focus:outline-none"
+                      placeholder="Describe your NFT..."
+                    ></textarea>
+                  </div>
+
+                  {/* دسته‌بندی و رویالتی */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Category</label>
+                      <select
+                        name="category"
+                        className="w-full bg-dark-light border border-dark-lighter rounded-lg px-4 py-3 text-white focus:border-primary focus:outline-none"
+                      >
+                        <option>Art</option>
+                        <option>Photography</option>
+                        <option>Music</option>
+                        <option>Sports</option>
+                        <option>Gaming</option>
+                        <option>Collectibles</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Royalty (%)</label>
+                      <input
+                        type="number"
+                        name="royalty"
+                        min="0"
+                        max="10"
+                        className="w-full bg-dark-light border border-dark-lighter rounded-lg px-4 py-3 text-white focus:border-primary focus:outline-none"
+                        placeholder="2.5"
+                      />
+                    </div>
+                  </div>
+
+                  {/* نتورک تست */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Select Testnet</label>
+                    <select
+                      name="testnet"
+                      className="w-full bg-dark-light border border-dark-lighter rounded-lg px-4 py-3 text-white focus:border-primary focus:outline-none"
+                    >
+                      <option>Ethereum Sepolia</option>
+                      <option>Polygon Mumbai</option>
+                      <option>Ethereum Goerli</option>
+                    </select>
+                  </div>
+
+                  {/* پراپرتی‌ها */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Properties (Optional)</label>
+                    <div className="space-y-3">
+                      {properties.map((prop, index) => (
+                        <div key={index} className="flex gap-3">
+                          <input
+                            type="text"
+                            placeholder="Property name"
+                            className="flex-1 bg-dark-light border border-dark-lighter rounded-lg px-4 py-2 text-white focus:border-primary focus:outline-none"
+                            value={prop.name}
+                            onChange={(e) => {
+                              const newProperties = [...properties];
+                              newProperties[index].name = e.target.value;
+                              setProperties(newProperties);
+                            }}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Value"
+                            className="flex-1 bg-dark-light border border-dark-lighter rounded-lg px-4 py-2 text-white focus:border-primary focus:outline-none"
+                            value={prop.value}
+                            onChange={(e) => {
+                              const newProperties = [...properties];
+                              newProperties[index].value = e.target.value;
+                              setProperties(newProperties);
+                            }}
+                          />
+                          {index === 0 ? (
+                            <button type="button" onClick={addProperty} className="bg-primary text-dark px-4 py-2 rounded-lg hover:bg-secondary transition-colors">+</button>
+                          ) : (
+                            <button type="button" onClick={() => removeProperty(index)} className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">-</button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* دکمه ساخت */}
+                  <button
+                    type="submit"
+                    className="w-full bg-primary text-dark py-4 rounded-lg font-semibold text-lg hover:bg-secondary transition-colors flex items-center justify-center"
+                    disabled={notification && notification.message === 'Creating NFT...'}
+                  >
+                    <span>{notification && notification.message === 'Creating NFT...' ? 'Creating NFT...' : 'Create NFT'}</span>
+                    {notification && notification.message === 'Creating NFT...' && (
+                      <div className="loading w-5 h-5 border-2 border-dark border-t-transparent rounded-full ml-2"></div>
+                    )}
+                  </button>
+                </form>
+              </div>
+            </div>
+          </section>
+        </div>
+
+
+
+
+        {/* About Page */}
+        <div className={`page ${activePage === 'about' ? 'active' : ''}`}>
+          <section className="py-20 bg-dark-light min-h-screen">
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-12">
+                <h2 className="text-4xl font-bold mb-4">About KIA NFT</h2>
+                <p className="text-gray-400 text-lg">Showcasing Web3 development skills on Ethereum</p>
+              </div>
+              <div className="bg-dark rounded-2xl p-8 shadow-2xl">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div>
+                    <h3 className="text-2xl font-bold mb-4 text-primary">Project Overview</h3>
+                    <p className="text-gray-300 mb-6">
+                      KIA NFT is a demonstration project running exclusively on testnet to showcase technical skills in blockchain and Web3 development. Built on the Ethereum ecosystem.
+                    </p>
+                    <h4 className="text-lg font-semibold mb-3 text-primary">Key Features:</h4>
+                    <ul className="text-gray-300 space-y-2">
+                      <li>• MetaMask wallet integration</li>
+                      <li>• NFT creation and trading</li>
+                      <li>• Complete marketplace functionality</li>
+                      <li>• Modern responsive UI/UX</li>
+                      <li>• Ethereum Sepolia testnet support</li>
+                      <li>• Real-time transaction tracking</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold mb-4 text-primary">Technology Stack</h3>
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <div className="bg-dark-lighter rounded-lg p-4 text-center">
+                        <div className="text-2xl mb-2">⚛️</div>
+                        <div className="font-semibold">React</div>
+                      </div>
+                      <div className="bg-dark-lighter rounded-lg p-4 text-center">
+                        <div className="text-2xl mb-2">🔗</div>
+                        <div className="font-semibold">ether.js</div>
+                      </div>
+                      <div className="bg-dark-lighter rounded-lg p-4 text-center">
+                        <div className="text-2xl mb-2">💎</div>
+                        <div className="font-semibold">Solidity</div>
+                      </div>
+                      <div className="bg-dark-lighter rounded-lg p-4 text-center">
+                        <div className="text-2xl mb-2">🎨</div>
+                        <div className="font-semibold">Tailwind CSS</div>
+                      </div>
+                      <div className="bg-dark-lighter rounded-lg p-4 text-center">
+                        <div className="text-2xl mb-2">⚡</div>
+                        <div className="font-semibold">Ethereum</div>
+                      </div>
+                      <div className="bg-dark-lighter rounded-lg p-4 text-center">
+                        <div className="text-2xl mb-2">🔨</div>
+                        <div className="font-semibold">Hardhat</div>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
+                      <p className="text-sm text-primary">
+                        ⚠️ Notice: This website operates exclusively on testnet and no real transactions are processed.
+                      </p>
+                    </div>
+                    <div className="mt-6">
+                      <h4 className="text-lg font-semibold mb-3 text-primary">Ethereum Benefits:</h4>
+                      <ul className="text-gray-300 space-y-1 text-sm">
+                        <li>• Decentralized and secure</li>
+                        <li>• Large developer community</li>
+                        <li>• Extensive tooling ecosystem</li>
+                        <li>• Smart contract capabilities</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="bg-dark border-t border-dark-lighter py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="col-span-2">
+              <div className="text-2xl font-bold text-primary mb-4">KIA NFT</div>
+              <p className="text-gray-400 mb-6">The premier NFT marketplace on Ethereum Sepolia testnet, showcasing the future of digital asset trading.</p>
+              <div className="flex space-x-4">
+                <button className="text-gray-400 hover:text-primary transition-colors">
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" /></svg>
+                </button>
+                <button className="text-gray-400 hover:text-primary transition-colors">
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M22.46 6c-.77.35-1.6.58-2.46.69.88-.53 1.56-1.37 1.88-2.38-.83.5-1.75.85-2.72 1.05C18.37 4.5 17.26 4 16 4c-2.35 0-4.27 1.92-4.27 4.29 0 .34.04.67.11.98C8.28 9.09 5.11 7.38 3 4.79c-.37.63-.58 1.37-.58 2.15 0 1.49.75 2.81 1.91 3.56-.71 0-1.37-.2-1.95-.5v.03c0 2.08 1.48 3.82 3.44 4.21a4.22 4.22 0 0 1-1.93.07 4.28 4.28 0 0 0 4 2.98 8.521 8.521 0 0 1-5.33 1.84c-.34 0-.68-.02-1.02-.06C3.44 20.29 5.7 21 8.12 21 16 21 20.33 14.46 20.33 8.79c0-.19 0-.37-.01-.56.84-.6 1.56-1.36 2.14-2.23z" /></svg>
+                </button>
+                <button className="text-gray-400 hover:text-primary transition-colors">
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" /></svg>
+                </button>
+              </div>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-4">Marketplace</h3>
+              <ul className="space-y-2 text-gray-400">
+                <li><button className="hover:text-primary transition-colors">Browse NFTs</button></li>
+                <li><button className="hover:text-primary transition-colors">Create NFT</button></li>
+                <li><button className="hover:text-primary transition-colors">Collections</button></li>
+                <li><button className="hover:text-primary transition-colors">Rankings</button></li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-4">Resources</h3>
+              <ul className="space-y-2 text-gray-400">
+                <li><button className="hover:text-primary transition-colors">Help Center</button></li>
+                <li><button className="hover:text-primary transition-colors">KIA Chain Docs</button></li>
+                <li><button className="hover:text-primary transition-colors">API Documentation</button></li>
+                <li><button className="hover:text-primary transition-colors">Community</button></li>
+              </ul>
+            </div>
+          </div>
+          <div className="mt-8 pt-8 border-t border-dark-lighter text-center text-gray-500 text-sm">
+            <p>© 2024 KIA NFT Marketplace. All rights reserved. Built on Ethereum Sepolia testnet for demonstration purposes.</p>
+          </div>
+        </div>
+      </footer>
+
+      {/* Notification */}
+      {notification && (
+        <div className={`fixed top-4 right-4 w-96 p-4 rounded-lg shadow-lg z-50 ${notification.type === 'success' ? 'bg-green-600' : notification.type === 'error' ? 'bg-red-600' : 'bg-blue-600'} text-white transform transition-transform`} style={{ transform: notification ? 'translateX(0)' : 'translateX(100%)' }}>
+          <div className="flex items-center justify-between">
+            <span className="text-sm">{notification.message}</span>
+            <button onClick={() => setNotification(null)} className="text-white hover:text-gray-200 ml-4">✕</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default App;

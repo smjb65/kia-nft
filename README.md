@@ -1,120 +1,116 @@
-⚡ Kia-TokenPool
+KIA NFT Marketplace
+📋 Project Overview
+KIA NFT Marketplace is a decentralized platform for creating, buying, and selling Non-Fungible Tokens (NFTs) on the Ethereum Sepolia Testnet. This project serves as a demonstration of Web3 development skills.
 
-A simple token management and liquidity pool simulator where you can deploy your own ERC-20 tokens on the Sepolia Testnet, list them in a token table, and experiment with liquidity features.
+🛠️ Technology Stack
+Frontend: React.js with Tailwind CSS
 
-✨ Features
+Blockchain: Ethereum (Sepolia Testnet)
 
-🔗 Connect with MetaMask or Trust Wallet
+Smart Contracts: Solidity with ethers.js
 
-🪙 Deploy custom ERC-20 tokens (name, symbol, supply, decimals)
+Storage: IPFS (via Pinata)
 
-📊 Auto-generated token list table with simulated price, liquidity, and volume
+Wallet Integration: MetaMask/Trust Wallet
 
-🔍 Search and sort tokens by liquidity, price, volume, or creation date
+Development: Hardhat
 
-🛠️ Tech Stack
+⚠️ Important Limitations
+1. Contract Owner Exclusive Access
+Important: Only the smart contract owner address can perform NFT minting operations. This is a security feature in the contract that prevents unauthorized users from creating NFTs.
 
-React – Frontend framework
+2. Current Purchase System
+The NFT purchase functionality is not fully implemented in the current version:
 
-TailwindCSS – Styling
+Only the contract owner can create NFTs
 
-Ethers.js – Blockchain interaction
+Purchase and ownership transfer capabilities require further development
 
-MetaMask / Trust Wallet – Wallet connection
+🚀 Key Features
+✅ Wallet connection (MetaMask/Trust Wallet)
 
-📦 Blockchain / Smart Contracts
+✅ NFT creation with metadata
 
-All smart contract code and blockchain interactions are located in the hardhat-token folder
-. You can find:
+✅ IPFS file storage via Pinata
 
-https://github.com/smjb65/hardhat-token.git 
+✅ NFT marketplace display
 
+✅ Responsive design
 
-ERC-20 token contract
+✅ Real-time balance updates
 
-Deployment scripts
+🔧 Setup Instructions
+Prerequisites
+Node.js (v14 or higher)
 
-Hardhat configuration for Sepolia Testnet
+MetaMask wallet
 
-View Token in the Table
-Your new token will appear with:
+Pinata account (for IPFS)
 
-Contract address
+Sepolia ETH for gas fees
 
-Creation date
+Installation
+Clone the repository
 
-Simulated price, liquidity, and volume
+Install dependencies: npm install
 
-Only tokens created using your connected wallet will be displayed in the table ✅
+Set up environment variables:
 
-🚀 Installation & Setup
+text
+REACT_APP_PINATA_JWT=your_pinata_jwt_token
+Start development server: npm start
 
-Clone the repository:
+📁 Project Structure
+text
+src/
+├── App.js              # Main application component
+├── App.css             # Styling
+├── abi/
+│   └── MyNFT.json      # Contract ABI
+└── ...
+🔗 Smart Contract Details
+Contract Address: 0xAad52Cf0D0Dc0C8dbC65D4FD4299edCa048d0668
 
-git clone https://github.com/smjb65/kia-dex.git
-cd kia-dex
+Network: Ethereum Sepolia Testnet
 
+ABI: Included in abi/MyNFT.json
 
-Install dependencies:
+🌐 IPFS Integration
+The project uses Pinata for IPFS storage:
 
-npm install
+Files are uploaded to IPFS via Pinata API
 
+Metadata is stored as JSON on IPFS
 
-Start development server:
+Gateway: https://gateway.pinata.cloud/ipfs/
 
-npm start
+🎯 Usage Guide
+Connect Wallet: Click "Connect Wallet" to link your MetaMask
 
+Create NFT: Navigate to "Create NFT" page (owner only)
 
-The app runs at http://localhost:3000
-.
+Upload File: Select file and fill in metadata
 
-🚦 Usage
-Connect Wallet
+Mint NFT: Confirm transaction in wallet
 
-Click Connect Wallet and choose MetaMask or Trust Wallet.
+View Marketplace: Browse created NFTs
 
-Switch to Sepolia Testnet in your wallet.
+⚡ Important Notes
+This is a testnet demonstration only
 
-Create a Token
+No real financial transactions occur
 
-Fill out the form with token Name, Symbol, Total Supply, and Decimals.
+Contract ownership restrictions are intentional
 
-Deploy Token
+IPFS files are stored via Pinata pinning service
 
-Click Deploy and confirm the transaction in your wallet.
+🔮 Future Enhancements
+Full purchase functionality
 
-Wait a few seconds for confirmation.
+Auction system
 
-View Token in the Table
+Royalty distribution
 
-Your new token will appear with:
+Collection management
 
-Contract address
-
-Creation date
-
-Simulated price, liquidity, and volume
-
-(Optional) Import Token to Wallet
-
-Copy the token contract address from the table.
-
-In MetaMask → Import Token → Paste address.
-
-Your token will now show in your wallet.
-
-🤝 Contributing
-
-Fork the repo
-
-Create your feature branch (git checkout -b feature/new-idea)
-
-Commit changes (git commit -m "Add new idea")
-
-Push to branch (git push origin feature/new-idea)
-
-Open a Pull Request
-
-📜 License
-
-This project is for educational and testing purposes on the Sepolia Testnet. Not intended for production or real trading use.
+Advanced filtering and search

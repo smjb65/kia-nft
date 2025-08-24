@@ -9,7 +9,7 @@ body {
 }
 
 .gradient-bg {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); /* تیره، سازگار با تم زرد */
 }
 
 .card-shadow {
@@ -22,5 +22,5 @@ body {
 }
 
 .tab-active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #FCD34D 0%, #F59E0B 100%); /* gradient زرد/نارنجی */
 }
