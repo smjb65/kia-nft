@@ -36,6 +36,17 @@ Deployment scripts
 
 Hardhat configuration for Sepolia Testnet
 
+View Token in the Table
+Your new token will appear with:
+
+Contract address
+
+Creation date
+
+Simulated price, liquidity, and volume
+
+Only tokens created using your connected wallet will be displayed in the table ✅
+
 🚀 Installation & Setup
 
 Clone the repository:
