@@ -2,6 +2,8 @@ KIA NFT Marketplace
 📋 Project Overview
 KIA NFT Marketplace is a decentralized platform for creating, buying, and selling Non-Fungible Tokens (NFTs) on the Ethereum Sepolia Testnet. This project serves as a demonstration of Web3 development skills.
 
+https://kia-nft.vercel.app/
+
 🛠️ Technology Stack
 Frontend: React.js with Tailwind CSS
 
